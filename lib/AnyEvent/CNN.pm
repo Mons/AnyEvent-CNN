@@ -8,6 +8,7 @@ use warnings;
 };
 use Carp;
 use Scalar::Util 'weaken';
+use Devel::Refcount 'refcount';
 =head1 NAME
 
 AnyEvent::CNN - ...
@@ -42,7 +43,7 @@ use constant {
 
 sub init {
 	my $self = shift;
-	$self->{debug} ||= 1;
+	$self->{debug} //= 1;
 	$self->{timeout} ||= 30;
 	$self->{reconnect} = 0.1 unless exists $self->{reconnect};
 	if (exists $self->{server}) {
@@ -82,11 +83,10 @@ sub _resolve {
 }
 
 sub connect {
-	my $self = shift;
+	weaken( my $self = shift );
 	my $cb;$cb = pop if @_ and ref $_[-1] eq 'CODE';
 	$self->{state} == CONNECTING and return;
 	$self->state( CONNECTING );
-	weaken $self;
 	warn "Connecting to $self->{host}:$self->{port} with timeout $self->{timeout} (by @{[ (caller)[1,2] ]})...\n" if $self->{debug};
 	# @rewrite s/sub {/cb connect {/;
 	my $addr;
@@ -95,7 +95,7 @@ sub connect {
 			warn "TTR $self->{addrs_ttr} expired (".time.")\n" if $self->{debug} > 1;
 			delete $self->{addrs};
 			$self->_resolve(sub {
-				warn "Resolved: @_";
+				warn "Resolved: @_" if $self->{debug};
 				$self or return;
 				if (shift) {
 					$self->state( INIT );
@@ -116,7 +116,7 @@ sub connect {
 		} else {
 			warn "Have no addrs, resolve $self->{host}\n" if $self->{debug};
 			$self->_resolve(sub {
-				warn "Resolved: @_";
+				warn "Resolved: @_" if $self->{debug};
 				$self or return;
 				if (shift) {
 					$self->state( INIT );
@@ -154,6 +154,7 @@ sub _on_connect {
 		$self->_on_connect_success($fh,$host,$port,$cb);
 		#$self->{rw} = AnyEvent::RW->
 	} else {
+		warn "Connect failed: $!";
 		if ($self->{reconnect}) {
 			$self->event( connfail => "$!" );
 		} else {
@@ -213,8 +214,8 @@ sub reconnect {
 
 sub disconnect {
 	my $self = shift;
-	warn "Disconnecting (state=$self->{state}) by @{[ (caller)[1,2] ]}\n" if $self->{debug};
 	$self->state(DISCONNECTING);
+	warn "Disconnecting (state=$self->{state}, pstate=$self->{pstate}) by @{[ (caller)[1,2] ]}\n" if $self->{debug};
 	if ( $self->{pstate} &(  CONNECTED | CONNECTING ) ) {
 		delete $self->{con};
 	}
@@ -222,6 +223,7 @@ sub disconnect {
 	delete $self->{_};
 	delete $self->{timers};
 	if ( $self->{pstate} == CONNECTED ) {
+		warn "emit event disconnected";
 		$self->event(disconnected => @_);
 	}
 	elsif ( $self->{pstate} == CONNECTING ) {
