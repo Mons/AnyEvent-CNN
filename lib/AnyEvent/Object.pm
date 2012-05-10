@@ -4,6 +4,8 @@ use strict;
 use AE;
 use Scalar::Util 'weaken';
 
+sub EE_DEBUG_EVENTS { 1 }
+
 sub new {
 	my $pk = shift;
 	my $self = bless {@_},$pk;

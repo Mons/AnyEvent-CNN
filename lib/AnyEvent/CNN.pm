@@ -154,7 +154,7 @@ sub _on_connect {
 		$self->_on_connect_success($fh,$host,$port,$cb);
 		#$self->{rw} = AnyEvent::RW->
 	} else {
-		warn "Connect failed: $!";
+		#warn "Connect failed: $!";
 		if ($self->{reconnect}) {
 			$self->event( connfail => "$!" );
 		} else {
@@ -223,7 +223,6 @@ sub disconnect {
 	delete $self->{_};
 	delete $self->{timers};
 	if ( $self->{pstate} == CONNECTED ) {
-		warn "emit event disconnected";
 		$self->event(disconnected => @_);
 	}
 	elsif ( $self->{pstate} == CONNECTING ) {
