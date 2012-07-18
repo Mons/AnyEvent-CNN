@@ -173,18 +173,18 @@ sub _on_connreset {
 
 sub _on_connected_prepare {
 	my ($self,$fh,$host,$port) = @_;
-	
+	return 0;
 }
 
 sub _on_connect_success {
 	my ($self,$fh,$host,$port,$cb) = @_;
-	$self->_on_connected_prepare($fh,$host,$port);
-	$cb->($host,$port) if $cb;
+	my $handled = $self->_on_connected_prepare($fh,$host,$port);
+	$cb->($host,$port) if ref $cb;
 	if ($self->handles('connected')) {
 		$self->event( connected => ($host,$port) );
 	}
-	elsif (!$cb) {
-		warn "connected not handled!" ;
+	elsif (!$cb and !$handled) {
+		warn "connected not handled!";
 	}
 }
 
